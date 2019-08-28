@@ -1,0 +1,19 @@
+Client Server ToDos:
+|__ threading                   =  done
+|__ error handling              =  done    
+|__ array of clients            =  done
+|__ command execution
+|_____ Windows
+|_____ Linux                    =  done
+|__ run as service
+|__ build GUI
+|__ allow firewall
+|__ run at startup
+|__ upload/download file        =  done
+|__ client info gathering       =  done
+|__ command_exec mode           =  done
+|__ broadcasting on network     =  done
+
+
+KeyLogger ToDos:
+|__ Check Python KeyLogger projects on github
